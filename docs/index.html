@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Steam Deals</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:var(--tg-theme-bg-color,#1b2838);
+  --bg2:var(--tg-theme-secondary-bg-color,#1e2d3d);
+  --text:var(--tg-theme-text-color,#c6d4df);
+  --hint:var(--tg-theme-hint-color,#677a8e);
+  --accent:var(--tg-theme-button-color,#1a9fff);
+  --btn:var(--tg-theme-button-text-color,#fff);
+  --r:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+.app{display:flex;flex-direction:column;height:100vh}
+.header{flex-shrink:0;padding:12px 16px 0;background:var(--bg);border-bottom:1px solid rgba(255,255,255,.06)}
+.scroller{flex:1;overflow-y:auto;padding:12px 16px 80px;-webkit-overflow-scrolling:touch}
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid rgba(255,255,255,.08);display:flex;padding:6px 0 max(6px,env(safe-area-inset-bottom));z-index:100}
+
+/* SEARCH */
+.srow{display:flex;gap:8px;margin-bottom:10px}
+.sbox{flex:1;display:flex;align-items:center;background:rgba(255,255,255,.07);border-radius:10px;padding:0 12px;height:40px;gap:8px}
+.sbox input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:14px}
+.sbox input::placeholder{color:var(--hint)}
+.rbtn{width:40px;height:40px;background:rgba(255,255,255,.07);border:none;border-radius:10px;color:var(--hint);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.rbtn.spin{animation:sp .6s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* CHIPS */
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;padding:5px 13px;border-radius:20px;border:1.5px solid rgba(255,255,255,.12);background:transparent;color:var(--hint);font-size:13px;cursor:pointer;transition:.15s;white-space:nowrap}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--btn);font-weight:600}
+
+/* SORT */
+.srow2{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.slabel{font-size:12px;color:var(--hint)}
+.ssel{background:rgba(255,255,255,.07);border:none;border-radius:8px;color:var(--text);font-size:13px;padding:4px 8px;cursor:pointer;outline:none}
+
+/* CARDS */
+.grid{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--bg2);border-radius:var(--r);overflow:hidden;border:1px solid rgba(255,255,255,.06);animation:fi .3s ease both}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.card:active{transform:scale(.98)}
+.cimg{position:relative;height:145px;overflow:hidden;background:#0d1117;cursor:pointer}
+.cimg img{width:100%;height:100%;object-fit:cover}
+.badges{position:absolute;top:8px;left:8px;display:flex;gap:5px;flex-wrap:wrap}
+.bdg{padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700;color:#fff}
+.bdg.free{background:#16a34a}
+.bdg.hot{background:#dc2626}
+.bdg.mid{background:#d97706}
+.tmbdg{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.75);border-radius:6px;padding:2px 8px;font-size:11px;color:#fbbf24;font-weight:600}
+.cbody{padding:10px 12px 12px}
+.cname{font-size:15px;font-weight:600;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.crow{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.prices{display:flex;align-items:center;gap:7px}
+.op{font-size:12px;color:var(--hint);text-decoration:line-through}
+.np{font-size:16px;font-weight:700;color:#4ade80}
+.pct{background:rgba(74,222,128,.15);color:#4ade80;font-size:13px;font-weight:700;padding:3px 8px;border-radius:6px}
+.bar{height:4px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:8px;overflow:hidden}
+.barf{height:100%;background:linear-gradient(90deg,var(--accent),#4ade80);border-radius:2px}
+.acts{display:flex;gap:6px;margin-top:10px}
+.abtn{flex:1;background:var(--accent);color:var(--btn);border:none;border-radius:8px;padding:8px;font-size:13px;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;display:block}
+.wbtn{width:36px;height:36px;background:rgba(255,255,255,.07);border:none;border-radius:8px;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center}
+.wbtn.on{background:rgba(239,68,68,.2)}
+
+/* NAV */
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px;color:var(--hint);font-size:10px;border:none;background:none;transition:.15s}
+.ni.on{color:var(--accent)}
+.ni svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2}
+
+/* SKELETON */
+.sk{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.09) 50%,rgba(255,255,255,.04) 75%);background-size:200%;animation:sh 1.2s infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.skc{border-radius:var(--r);overflow:hidden;border:1px solid rgba(255,255,255,.06)}
+.ski{height:145px}
+.skb{padding:12px}.skl{height:14px;border-radius:4px;margin-bottom:8px}
+.skl.s{width:55%}
+
+/* MODAL */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;opacity:0;pointer-events:none;transition:.2s;backdrop-filter:blur(6px)}
+.ov.open{opacity:1;pointer-events:all}
+.modal{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-radius:24px 24px 0 0;z-index:201;max-height:90vh;overflow-y:auto;transform:translateY(100%);transition:.3s cubic-bezier(.32,0,.67,0);padding-bottom:max(20px,env(safe-area-inset-bottom))}
+.modal.open{transform:none}
+.mhandle{width:40px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;margin:12px auto 0}
+.mimg{width:100%;height:190px;object-fit:cover}
+.mbody{padding:16px}
+.mtitle{font-size:19px;font-weight:700;margin-bottom:8px}
+.mprow{display:flex;align-items:center;gap:12px;margin:10px 0}
+.mop{font-size:15px;color:var(--hint);text-decoration:line-through}
+.mnp{font-size:24px;font-weight:800;color:#4ade80}
+.mbdg{font-size:20px;font-weight:800;color:#ef4444}
+.mdesc{font-size:14px;color:var(--hint);line-height:1.55;margin:10px 0}
+.mtags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tag{padding:3px 10px;border-radius:20px;background:rgba(255,255,255,.07);font-size:12px;color:var(--hint)}
+.mobtn{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:12px}
+
+/* MISC */
+.empty{text-align:center;padding:60px 20px;color:var(--hint)}
+.empty .ic{font-size:48px;margin-bottom:12px}
+.ctop{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.ctxt{font-size:12px;color:var(--hint)}
+.stbtn{position:fixed;bottom:78px;right:16px;width:40px;height:40px;background:var(--accent);border:none;border-radius:50%;color:#fff;font-size:18px;cursor:pointer;opacity:0;transform:translateY(8px);transition:.2s;z-index:50;display:flex;align-items:center;justify-content:center}
+.stbtn.show{opacity:1;transform:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="srow">
+      <div class="sbox">
+        <span style="color:var(--hint)">🔍</span>
+        <input id="q" placeholder="Поиск игр..." oninput="render()">
+      </div>
+      <button class="rbtn" id="rb" onclick="doRefresh()" title="Обновить">↻</button>
+    </div>
+    <div class="chips" id="chips">
+      <button class="chip on" onclick="setF('all',this)">Все</button>
+      <button class="chip" onclick="setF('free',this)">🆓 Бесплатно</button>
+      <button class="chip" onclick="setF('75',this)">75%+</button>
+      <button class="chip" onclick="setF('50',this)">50%+</button>
+      <button class="chip" onclick="setF('25',this)">25%+</button>
+    </div>
+    <div class="srow2">
+      <span class="slabel">Сортировка:</span>
+      <select class="ssel" id="ss" onchange="render()">
+        <option value="disc">По скидке</option>
+        <option value="pasc">Цена ↑</option>
+        <option value="pdsc">Цена ↓</option>
+        <option value="name">По названию</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="scroller" id="sc">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <nav>
+    <button class="ni on" id="n-deals" onclick="setTab('deals',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Скидки
+    </button>
+    <button class="ni" id="n-free" onclick="setTab('free',this)">
+      <svg viewBox="0 0 24 24"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>Бесплатно
+    </button>
+    <button class="ni" id="n-wl" onclick="setTab('wl',this)">
+      <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>Вишлист
+    </button>
+    <button class="ni" id="n-got" onclick="setTab('got',this)">
+      <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>Получено
+    </button>
+  </nav>
+</div>
+
+<button class="stbtn" id="stb" onclick="document.getElementById('sc').scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<div class="ov" id="ov" onclick="closeM()"></div>
+<div class="modal" id="modal">
+  <div class="mhandle"></div>
+  <img id="mi" class="mimg" src="" alt="">
+  <div class="mbody">
+    <div class="mtitle" id="mt"></div>
+    <div id="mtags" class="mtags"></div>
+    <div class="mprow">
+      <span class="mop" id="mop"></span>
+      <span class="mnp" id="mnp"></span>
+      <span class="mbdg" id="mbdg"></span>
+    </div>
+    <div class="mdesc" id="md"></div>
+    <button class="mobtn" id="mb">🛒 Открыть в Steam</button>
+  </div>
+</div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if(tg){tg.ready();tg.expand();}
+
+let deals=[], wl=new Set(JSON.parse(localStorage.getItem('wl')||'[]'));
+let tab='deals', flt='all', timers={}, gotIds=new Set();
+
+async function fetchGot(){
+  try{
+    const r=await fetch('history_cache.json?t='+Date.now());
+    const d=await r.json();
+    gotIds=new Set(d.map(x=>String(x.id)));
+  }catch{}
+}
+
+// ── FETCH ─────────────────────────────────────────────────────────────────────
+async function fetchDeals(){
+  skeleton();
+  try{
+    const r=await fetch('deals_cache.json?t='+Date.now());
+    const d=await r.json();
+    deals=d.map(it=>({
+      id:it.id, name:it.name||'?',
+      disc:it.discount,
+      op:it.old_price,
+      np:it.new_price,
+      img:it.image||'',
+      exp:it.expires||0,
+      url:`https://store.steampowered.com/app/${it.id}`,
+    }));
+  }catch(e){console.error(e);}
+  render();
+}
+
+async function fetchDetails(id){
+  try{
+    const url=`https://store.steampowered.com/api/appdetails/?appids=${id}&l=russian&cc=us`;
+    const r=await fetch(url);
+    const d=await r.json();
+    return d?.[String(id)]?.data||{};
+  }catch{return {};}
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+function setF(f,el){
+  flt=f;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  render();
+}
+
+function setTab(t,el){
+  tab=t;
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('q').value='';
+  render();
+}
+
+async function doRefresh(){
+  const rb=document.getElementById('rb');
+  rb.classList.add('spin');
+  await Promise.all([fetchDeals(), fetchGot()]);
+  rb.classList.remove('spin');
+  tg?.HapticFeedback?.notificationOccurred('success');
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function getData(){
+  let d=[...deals];
+  if(tab==='free') d=d.filter(x=>x.disc===100);
+  else if(tab==='wl') d=d.filter(x=>wl.has(x.id));
+  else if(tab==='got'){
+    d=d.filter(x=>gotIds.has(String(x.id)));
+  } else {
+    if(flt==='free') d=d.filter(x=>x.disc===100);
+    else if(flt==='75') d=d.filter(x=>x.disc>=75);
+    else if(flt==='50') d=d.filter(x=>x.disc>=50);
+    else if(flt==='25') d=d.filter(x=>x.disc>=25);
+  }
+  const q=document.getElementById('q').value.toLowerCase();
+  if(q) d=d.filter(x=>x.name.toLowerCase().includes(q));
+  const s=document.getElementById('ss').value;
+  if(s==='pasc') d.sort((a,b)=>a.np-b.np);
+  else if(s==='pdsc') d.sort((a,b)=>b.np-a.np);
+  else if(s==='name') d.sort((a,b)=>a.name.localeCompare(b.name));
+  else d.sort((a,b)=>b.disc-a.disc);
+  return d;
+}
+
+function render(){
+  Object.values(timers).forEach(clearInterval); timers={};
+  const d=getData(), g=document.getElementById('grid');
+  const empty={
+    wl:['💔','Вишлист пуст','Нажми 🤍 на любой игре'],
+    free:['🎮','Бесплатных нет','Скоро появятся!'],
+    got:['📭','Ничего не получено','Бот добавит сюда'],
+  };
+  if(!d.length){
+    const[ic,t,s]=empty[tab]||['🤷','Ничего','Измени фильтр'];
+    g.innerHTML=`<div class="empty"><div class="ic">${ic}</div><b>${t}</b><br><small>${s}</small></div>`;
+    return;
+  }
+  g.innerHTML=`<div class="ctop"><span class="ctxt">Найдено: ${d.length}</span></div>`
+    +d.map((x,i)=>card(x,i)).join('');
+  d.forEach(x=>{if(x.exp)tick(x.id,x.exp);});
+}
+
+function card(d,i){
+  const free=d.disc===100, hot=d.disc>=75;
+  const bc=free?'free':hot?'hot':'mid';
+  const bt=free?'🆓 Бесплатно':`-${d.disc}%`;
+  const inWL=wl.has(d.id);
+  const pr=free?'<span class="np">БЕСПЛАТНО</span>'
+    :`<span class="op">$${d.op.toFixed(2)}</span><span class="np">$${d.np.toFixed(2)}</span>`;
+  return `<div class="card" style="animation-delay:${i*35}ms">
+    <div class="cimg" onclick="openM(${d.id})">
+      ${d.img?`<img src="${d.img}" alt="${d.name}" loading="lazy">`:''}
+      <div class="badges"><span class="bdg ${bc}">${bt}</span></div>
+      ${d.exp?`<div class="tmbdg" id="t${d.id}"></div>`:''}
+    </div>
+    <div class="cbody">
+      <div class="cname" onclick="openM(${d.id})">${d.name}</div>
+      <div class="crow">
+        <div class="prices">${pr}</div>
+        <span class="pct">-${d.disc}%</span>
+      </div>
+      <div class="bar"><div class="barf" style="width:${d.disc}%"></div></div>
+      <div class="acts">
+        <a class="abtn" href="${d.url}" target="_blank">🛒 Steam</a>
+        <button class="wbtn${inWL?' on':''}" onclick="toggleWL(event,${d.id})">${inWL?'❤️':'🤍'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── TIMER ─────────────────────────────────────────────────────────────────────
+function tick(id,exp){
+  const upd=()=>{
+    const el=document.getElementById('t'+id); if(!el)return;
+    const s=Math.max(0,exp-Date.now()/1000);
+    if(!s){el.textContent='Истекло';clearInterval(timers[id]);return;}
+    const d=Math.floor(s/86400),h=Math.floor(s/3600)%24,m=Math.floor(s/60)%60;
+    el.textContent=d>1?`⏰ ${d}д ${h}ч`:`⏰ ${h}:${String(m).padStart(2,'0')}`;
+  };
+  upd(); timers[id]=setInterval(upd,30000);
+}
+
+// ── WISHLIST ──────────────────────────────────────────────────────────────────
+function toggleWL(e,id){
+  e.stopPropagation();
+  wl.has(id)?wl.delete(id):wl.add(id);
+  localStorage.setItem('wl',JSON.stringify([...wl]));
+  tg?.HapticFeedback?.impactOccurred('light');
+  render();
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+async function openM(id){
+  const d=deals.find(x=>x.id===id); if(!d) return;
+  tg?.HapticFeedback?.impactOccurred('medium');
+  document.getElementById('mi').src=d.img;
+  document.getElementById('mt').textContent=d.name;
+  document.getElementById('mbdg').textContent=`-${d.disc}%`;
+  document.getElementById('mop').textContent=d.op>0?`$${d.op.toFixed(2)}`:'';
+  document.getElementById('mnp').textContent=d.disc===100?'БЕСПЛАТНО':`$${d.np.toFixed(2)}`;
+  document.getElementById('mb').onclick=()=>window.open(d.url,'_blank');
+  document.getElementById('md').textContent='Загрузка...';
+  document.getElementById('mtags').innerHTML='';
+  document.getElementById('ov').classList.add('open');
+  document.getElementById('modal').classList.add('open');
+  const info=await fetchDetails(id);
+  document.getElementById('md').textContent=info.short_description||'';
+  if(info.genres) document.getElementById('mtags').innerHTML=
+    info.genres.slice(0,4).map(g=>`<span class="tag">${g.description}</span>`).join('');
+}
+function closeM(){
+  document.getElementById('ov').classList.remove('open');
+  document.getElementById('modal').classList.remove('open');
+}
+
+// ── SCROLL TOP ────────────────────────────────────────────────────────────────
+document.getElementById('sc').addEventListener('scroll',function(){
+  document.getElementById('stb').classList.toggle('show',this.scrollTop>250);
+});
+
+// ── SKELETON ──────────────────────────────────────────────────────────────────
+function skeleton(){
+  document.getElementById('grid').innerHTML=
+    '<div class="skc"><div class="ski sk"></div><div class="skb"><div class="skl sk"></div><div class="skl sk s"></div></div></div>'.repeat(4);
+}
+
+Promise.all([fetchGot(), fetchDeals()]);
+</script>
+</body>
+</html>

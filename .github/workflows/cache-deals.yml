@@ -1,0 +1,34 @@
+name: Cache Steam Deals
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  cache:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install aiohttp
+
+      - name: Fetch and cache deals
+        run: python3 cache_deals.py
+
+      - name: Commit cache
+        run: |
+          git config user.name "Deals Cache"
+          git config user.email "bot@github.com"
+          git add docs/deals_cache.json
+          git diff --staged --quiet && exit 0
+          git pull --rebase
+          git commit -m "chore: update deals cache [skip ci]"
+          git push
