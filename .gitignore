@@ -1,0 +1,5 @@
+*.log
+data.json
+steam_config.json
+__pycache__/
+*.pyc

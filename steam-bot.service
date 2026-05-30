@@ -1,0 +1,15 @@
+[Unit]
+Description=Steam Deals Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=exeshnik
+WorkingDirectory=/home/exeshnik
+ExecStart=/usr/bin/python3 "/home/exeshnik/софты/steam bot/bot.py"
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
