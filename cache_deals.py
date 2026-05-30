@@ -5,7 +5,7 @@ from pathlib import Path
 import aiohttp
 
 async def main():
-    url = "https://store.steampowered.com/api/featuredcategories/?cc=ru&l=russian"
+    url = "https://store.steampowered.com/api/featuredcategories/?cc=ru&l=russian&currency=5"
     async with aiohttp.ClientSession() as s:
         async with s.get(url, timeout=aiohttp.ClientTimeout(total=15)) as r:
             data = await r.json(content_type=None)

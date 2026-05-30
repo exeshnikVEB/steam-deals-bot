@@ -59,7 +59,7 @@ async def api_deals():
 
 @app.get("/api/app/{app_id}")
 async def api_app(app_id: int):
-    url = f"https://store.steampowered.com/api/appdetails/?appids={app_id}&l=russian&cc=ru"
+    url = f"https://store.steampowered.com/api/appdetails/?appids={app_id}&l=russian&cc=ru&currency=5"
     try:
         async with aiohttp.ClientSession() as s:
             async with s.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:

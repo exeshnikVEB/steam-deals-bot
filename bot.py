@@ -61,7 +61,7 @@ def save_steam(c):
 # ── Steam API ──────────────────────────────────────────────────────────────────
 
 async def fetch_deals():
-    url = "https://store.steampowered.com/api/featuredcategories/?cc=ru&l=russian"
+    url = "https://store.steampowered.com/api/featuredcategories/?cc=ru&l=russian&currency=5"
     try:
         async with aiohttp.ClientSession() as s:
             async with s.get(url, timeout=aiohttp.ClientTimeout(total=15)) as r:
@@ -85,7 +85,7 @@ async def fetch_deals():
 
 
 async def fetch_app_details(app_id: int) -> dict:
-    url = f"https://store.steampowered.com/api/appdetails/?appids={app_id}&l=russian&cc=ru"
+    url = f"https://store.steampowered.com/api/appdetails/?appids={app_id}&l=russian&cc=ru&currency=5"
     try:
         async with aiohttp.ClientSession() as s:
             async with s.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
