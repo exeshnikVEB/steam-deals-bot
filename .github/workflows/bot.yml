@@ -13,6 +13,8 @@ jobs:
   run:
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +54,7 @@ jobs:
         run: timeout 340m python3 bot.py || true
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          WEBAPP_URL: ${{ secrets.WEBAPP_URL }}
           STEAM_SESSION_ID: ${{ secrets.STEAM_SESSION_ID }}
           STEAM_LOGIN_SECURE: ${{ secrets.STEAM_LOGIN_SECURE }}
 
@@ -63,3 +66,25 @@ jobs:
           path: data.json
           overwrite: true
           retention-days: 90
+
+      - name: Update history cache
+        if: always()
+        run: |
+          python3 -c "
+          import json
+          from pathlib import Path
+          try:
+              d = json.loads(Path('data.json').read_text())
+              history = [{'id': int(cid)} for cid in d.get('claimed_ids', [])]
+          except:
+              history = []
+          Path('docs').mkdir(exist_ok=True)
+          Path('docs/history_cache.json').write_text(json.dumps(history))
+          "
+          git config user.name "Steam Bot"
+          git config user.email "bot@github.com"
+          git add docs/history_cache.json
+          git diff --staged --quiet && exit 0
+          git commit -m "chore: update history cache [skip ci]"
+          git pull --rebase
+          git push
