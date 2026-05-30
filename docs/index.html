@@ -290,7 +290,7 @@ function card(d,i){
   const bt=free?'🆓 Бесплатно':`-${d.disc}%`;
   const inWL=wl.has(d.id);
   const pr=free?'<span class="np">БЕСПЛАТНО</span>'
-    :`<span class="op">$${d.op.toFixed(2)}</span><span class="np">$${d.np.toFixed(2)}</span>`;
+    :`<span class="op">${Math.round(d.op)}₽</span><span class="np">${Math.round(d.np)}₽</span>`;
   return `<div class="card" style="animation-delay:${i*35}ms">
     <div class="cimg" onclick="openM(${d.id})">
       ${d.img?`<img src="${d.img}" alt="${d.name}" loading="lazy">`:''}
@@ -340,8 +340,8 @@ async function openM(id){
   document.getElementById('mi').src=d.img;
   document.getElementById('mt').textContent=d.name;
   document.getElementById('mbdg').textContent=`-${d.disc}%`;
-  document.getElementById('mop').textContent=d.op>0?`$${d.op.toFixed(2)}`:'';
-  document.getElementById('mnp').textContent=d.disc===100?'БЕСПЛАТНО':`$${d.np.toFixed(2)}`;
+  document.getElementById('mop').textContent=d.op>0?`${Math.round(d.op)}₽`:'';
+  document.getElementById('mnp').textContent=d.disc===100?'БЕСПЛАТНО':`${Math.round(d.np)}₽`;
   document.getElementById('mb').onclick=()=>window.open(d.url,'_blank');
   document.getElementById('md').textContent='Загрузка...';
   document.getElementById('mtags').innerHTML='';

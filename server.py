@@ -19,7 +19,7 @@ DATA_FILE = Path(__file__).parent / "data.json"
 async def fetch_deals():
     if time.time() - CACHE["ts"] < 1800:
         return CACHE["deals"]
-    url = "https://store.steampowered.com/api/featuredcategories/?cc=us&l=russian"
+    url = "https://store.steampowered.com/api/featuredcategories/?cc=ru&l=russian"
     try:
         async with aiohttp.ClientSession() as s:
             async with s.get(url, timeout=aiohttp.ClientTimeout(total=15)) as r:
@@ -59,7 +59,7 @@ async def api_deals():
 
 @app.get("/api/app/{app_id}")
 async def api_app(app_id: int):
-    url = f"https://store.steampowered.com/api/appdetails/?appids={app_id}&l=russian&cc=us"
+    url = f"https://store.steampowered.com/api/appdetails/?appids={app_id}&l=russian&cc=ru"
     try:
         async with aiohttp.ClientSession() as s:
             async with s.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:

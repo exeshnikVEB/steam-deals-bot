@@ -61,7 +61,7 @@ def save_steam(c):
 # ── Steam API ──────────────────────────────────────────────────────────────────
 
 async def fetch_deals():
-    url = "https://store.steampowered.com/api/featuredcategories/?cc=us&l=russian"
+    url = "https://store.steampowered.com/api/featuredcategories/?cc=ru&l=russian"
     try:
         async with aiohttp.ClientSession() as s:
             async with s.get(url, timeout=aiohttp.ClientTimeout(total=15)) as r:
@@ -85,7 +85,7 @@ async def fetch_deals():
 
 
 async def fetch_app_details(app_id: int) -> dict:
-    url = f"https://store.steampowered.com/api/appdetails/?appids={app_id}&l=russian&cc=us"
+    url = f"https://store.steampowered.com/api/appdetails/?appids={app_id}&l=russian&cc=ru"
     try:
         async with aiohttp.ClientSession() as s:
             async with s.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
@@ -96,7 +96,7 @@ async def fetch_app_details(app_id: int) -> dict:
 
 
 async def search_steam(query: str) -> list:
-    url = f"https://store.steampowered.com/search/results/?term={query}&json=1&count=6&cc=us&l=russian"
+    url = f"https://store.steampowered.com/search/results/?term={query}&json=1&count=6&cc=ru&l=russian"
     try:
         async with aiohttp.ClientSession() as s:
             async with s.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
@@ -174,7 +174,7 @@ def format_deal(deal: dict, info: dict = None) -> str:
         price_line = "💚 <b>БЕСПЛАТНО</b>"
         badge = "🆓 БЕСПЛАТНО"
     else:
-        price_line = f"💰 <s>${old_p:.2f}</s> → <b>${new_p:.2f}</b>"
+        price_line = f"💰 <s>{old_p:.0f}₽</s> → <b>{new_p:.0f}₽</b>"
         badge = f"🔥 -{pct}%"
 
     bar = discount_bar(pct)
