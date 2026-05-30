@@ -1,0 +1,65 @@
+name: Steam Deals Bot
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: bot-run
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install python-telegram-bot[job-queue] aiohttp
+
+      - name: Restore state
+        id: restore
+        uses: actions/download-artifact@v4
+        with:
+          name: bot-state
+        continue-on-error: true
+
+      - name: Initialize state
+        if: steps.restore.outcome == 'failure'
+        run: |
+          python3 -c "
+          import json
+          d = {
+            'chat_ids': [${{ secrets.CHAT_ID }}],
+            'sent_ids': [],
+            'claimed_ids': [],
+            'wishlist': {},
+            'schedules': {},
+            'min_discount': {},
+            'stats': {'total_sent': 0, 'total_claimed': 0}
+          }
+          open('data.json','w').write(json.dumps(d))
+          "
+
+      - name: Run bot (5h 40min)
+        run: timeout 340m python3 bot.py || true
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          STEAM_SESSION_ID: ${{ secrets.STEAM_SESSION_ID }}
+          STEAM_LOGIN_SECURE: ${{ secrets.STEAM_LOGIN_SECURE }}
+
+      - name: Save state
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bot-state
+          path: data.json
+          overwrite: true
+          retention-days: 90
