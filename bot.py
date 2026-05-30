@@ -42,6 +42,7 @@ def load_data():
     return {
         "chat_ids": [], "sent_ids": [], "claimed_ids": [],
         "wishlist": {}, "schedules": {}, "min_discount": {},
+        "last_digest_msg": {},
         "stats": {"total_sent": 0, "total_claimed": 0}
     }
 
@@ -496,17 +497,17 @@ async def cmd_setsteam(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ── Дайджест скидок ────────────────────────────────────────────────────────────
 
-async def send_digest(bot: Bot, chat_id: int, deals: list):
+async def send_digest(bot: Bot, chat_id: int, deals: list, old_msg_id: int = None) -> int | None:
     if not deals:
-        return
+        return None
     webapp_url = WEBAPP_URL or None
     lines = [f"🔥 <b>Новые скидки Steam — {len(deals)} игр</b>\n"]
     for deal in deals[:8]:
-        pct     = deal["discount"]
-        old_p   = deal["old_price"]
-        new_p   = deal["new_price"]
-        app_id  = deal["id"]
-        name    = deal["name"]
+        pct    = deal["discount"]
+        old_p  = deal["old_price"]
+        new_p  = deal["new_price"]
+        app_id = deal["id"]
+        name   = deal["name"]
         if pct == 100:
             price = "🆓 <b>Бесплатно</b>"
         else:
@@ -518,15 +519,23 @@ async def send_digest(bot: Bot, chat_id: int, deals: list):
     if webapp_url:
         buttons = [[InlineKeyboardButton("🎮 Смотреть все скидки", web_app=WebAppInfo(url=webapp_url))]]
     try:
-        await bot.send_message(
+        # Удаляем предыдущий дайджест
+        if old_msg_id:
+            try:
+                await bot.delete_message(chat_id=chat_id, message_id=old_msg_id)
+            except Exception:
+                pass
+        msg = await bot.send_message(
             chat_id=chat_id,
             text="\n".join(lines),
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(buttons) if buttons else None,
             disable_web_page_preview=True,
         )
+        return msg.message_id
     except Exception as e:
         log.error(f"send_digest {chat_id}: {e}")
+        return None
 
 # ── Авто-проверка ──────────────────────────────────────────────────────────────
 
@@ -539,10 +548,11 @@ async def periodic_check(context: ContextTypes.DEFAULT_TYPE):
     if not deals:
         return
 
-    steam_cfg   = load_steam()
-    sent_ids    = set(d.get("sent_ids", []))
-    claimed_ids = set(d.get("claimed_ids", []))
-    stats       = d.setdefault("stats", {"total_sent": 0, "total_claimed": 0})
+    steam_cfg      = load_steam()
+    sent_ids       = set(d.get("sent_ids", []))
+    claimed_ids    = set(d.get("claimed_ids", []))
+    last_digest    = d.setdefault("last_digest_msg", {})
+    stats          = d.setdefault("stats", {"total_sent": 0, "total_claimed": 0})
 
     # Первый запуск после рестарта — тихо запоминаем текущие скидки, не шлём
     if not sent_ids:
@@ -586,7 +596,10 @@ async def periodic_check(context: ContextTypes.DEFAULT_TYPE):
                 key=lambda x: -x["discount"]
             )
             if to_send:
-                await send_digest(context.bot, cid, to_send)
+                old_msg = last_digest.get(str(cid))
+                new_msg = await send_digest(context.bot, cid, to_send, old_msg_id=old_msg)
+                if new_msg:
+                    last_digest[str(cid)] = new_msg
                 stats["total_sent"] = stats.get("total_sent", 0) + len(to_send)
 
     # Вишлист — проверяем совпадения
