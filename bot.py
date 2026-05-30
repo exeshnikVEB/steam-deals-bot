@@ -249,7 +249,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🎮 <b>Steam Deals Bot</b>\n\n"
         "Слежу за скидками 24/7 и автоматически добавляю бесплатные игры в твою библиотеку.\n\n"
         "━━━━━━━━━━━━━━━━━━\n"
-        "📨 <b>Авто-рассылка</b> — скидки ≥50% каждые 3 часа\n"
+        "📨 <b>Авто-рассылка</b> — новые скидки ≥75% одним сообщением\n"
         "🆓 <b>100% скидки</b> — мгновенно в библиотеку\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
         "Используй меню ниже ⬇️",
@@ -494,6 +494,40 @@ async def cmd_setsteam(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_steam({"session_id": context.args[0], "login_secure": context.args[1]})
         await update.message.reply_text("✅ Steam привязан! Игры с 100% скидкой добавляются автоматически.")
 
+# ── Дайджест скидок ────────────────────────────────────────────────────────────
+
+async def send_digest(bot: Bot, chat_id: int, deals: list):
+    if not deals:
+        return
+    webapp_url = WEBAPP_URL or None
+    lines = [f"🔥 <b>Новые скидки Steam — {len(deals)} игр</b>\n"]
+    for deal in deals[:8]:
+        pct     = deal["discount"]
+        old_p   = deal["old_price"]
+        new_p   = deal["new_price"]
+        app_id  = deal["id"]
+        name    = deal["name"]
+        if pct == 100:
+            price = "🆓 <b>Бесплатно</b>"
+        else:
+            price = f"<s>{old_p:.0f}₽</s> → <b>{new_p:.0f}₽</b> <i>(-{pct}%)</i>"
+        lines.append(f"• <a href=\"https://store.steampowered.com/app/{app_id}\">{name}</a> — {price}")
+    if len(deals) > 8:
+        lines.append(f"\n<i>...и ещё {len(deals) - 8} игр</i>")
+    buttons = []
+    if webapp_url:
+        buttons = [[InlineKeyboardButton("🎮 Смотреть все скидки", web_app=WebAppInfo(url=webapp_url))]]
+    try:
+        await bot.send_message(
+            chat_id=chat_id,
+            text="\n".join(lines),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(buttons) if buttons else None,
+            disable_web_page_preview=True,
+        )
+    except Exception as e:
+        log.error(f"send_digest {chat_id}: {e}")
+
 # ── Авто-проверка ──────────────────────────────────────────────────────────────
 
 async def periodic_check(context: ContextTypes.DEFAULT_TYPE):
@@ -505,12 +539,20 @@ async def periodic_check(context: ContextTypes.DEFAULT_TYPE):
     if not deals:
         return
 
-    steam_cfg = load_steam()
-    sent_ids   = set(d.get("sent_ids", []))
+    steam_cfg   = load_steam()
+    sent_ids    = set(d.get("sent_ids", []))
     claimed_ids = set(d.get("claimed_ids", []))
-    stats = d.setdefault("stats", {"total_sent": 0, "total_claimed": 0})
+    stats       = d.setdefault("stats", {"total_sent": 0, "total_claimed": 0})
 
-    # Бесплатные → добавляем на аккаунт
+    # Первый запуск после рестарта — тихо запоминаем текущие скидки, не шлём
+    if not sent_ids:
+        sent_ids.update(str(x["id"]) for x in deals)
+        d["sent_ids"] = list(sent_ids)
+        save_data(d)
+        log.info("Первый запуск: запомнили текущие скидки без отправки")
+        return
+
+    # Бесплатные игры → добавляем на аккаунт и уведомляем
     if steam_cfg:
         for game in [x for x in deals if x["discount"] == 100 and str(x["id"]) not in claimed_ids]:
             ok, msg = await claim_free_game(game["id"], steam_cfg["session_id"], steam_cfg["login_secure"])
@@ -533,33 +575,36 @@ async def periodic_check(context: ContextTypes.DEFAULT_TYPE):
                     except Exception:
                         pass
 
-    # Скидки ≥50% → уведомляем
-    new_deals = [x for x in deals if x["discount"] >= 50 and str(x["id"]) not in sent_ids]
+    # Новые скидки → один дайджест-сообщение на всё
+    new_deals = [x for x in deals if str(x["id"]) not in sent_ids]
     if new_deals:
         log.info(f"Новых скидок: {len(new_deals)}")
         for cid in d["chat_ids"]:
-            min_pct = int(d.get("min_discount", {}).get(str(cid), 50))
-            to_send = [x for x in new_deals if x["discount"] >= min_pct]
-            cnt = await send_deals(context.bot, cid, to_send, fetch_info=True)
-            stats["total_sent"] = stats.get("total_sent", 0) + cnt
+            min_pct = int(d.get("min_discount", {}).get(str(cid), 75))
+            to_send = sorted(
+                [x for x in new_deals if x["discount"] >= min_pct],
+                key=lambda x: -x["discount"]
+            )
+            if to_send:
+                await send_digest(context.bot, cid, to_send)
+                stats["total_sent"] = stats.get("total_sent", 0) + len(to_send)
 
     # Вишлист — проверяем совпадения
     wl_map = d.get("wishlist", {})
     deal_names = {x["name"].lower(): x for x in deals}
     for cid, wl in wl_map.items():
-        for wname, winfo in wl.items():
+        for wname in wl:
             for dname, deal in deal_names.items():
                 if wname.lower() in dname and str(deal["id"]) not in sent_ids:
                     try:
-                        await context.bot.send_photo(
+                        await context.bot.send_message(
                             chat_id=int(cid),
-                            photo=deal["image"],
-                            caption=(
+                            text=(
                                 f"🔔 <b>Скидка на игру из вишлиста!</b>\n\n"
                                 + format_deal(deal)
                             ),
                             parse_mode="HTML",
-                            reply_markup=deal_keyboard(deal)
+                            disable_web_page_preview=True,
                         )
                     except Exception:
                         pass
